@@ -1,0 +1,92 @@
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{StructType, StructField, StringType, NumericType, IntegerType}
+
+
+-- Load file
+
+var sports_data = sc.textFile("/home/acadgild/Desktop/19.1/Sports_data.txt")
+val schema_string = "firstname:string,lastname:string,sports:string,medaltype:string,age:integer,year:integer,country:string"
+
+
+-- create schema
+val schema = StructType(schema_string.split(",").map(x => StructField(x.split(":")(0),if(x.split(":")(1).equals("string")) StringType else IntegerType,true)))
+ 
+val row = sports_data.map(_.split(",")).map(x => Row(x(0), x(1), x(2), x(3), x(4).toInt, x(5).toInt, x(6)))
+
+--create Dataframe  
+
+val SportsDataDf = sqlContext.createDataFrame(row,schema)
+
+-- create temperary table
+SportsDataDf.registerTempTable("Sports_data")
+
+ val sportsCData = sqlContext.sql("select * from Sports_data")
+sportsCData.show()
+
+
+
+
+-------------------------------------------------------------------------
+
+
+task-1)
+--Change firstname, lastname columns into Mr.first_two_letters_of_firstname<space>lastname for example - michael, phelps becomes Mr.mi phelps.
+
+
+
+def newName = udf((firstName:String,lastName:String) =>{"Mr."+firstName+" "+lastName})
+
+val SportsChangeName = SportsDataDf.withColumn("name",newName(SportsDataDf("firstname").substr(1,2),SportsDataDf("lastname"))).drop(SportsDataDf("firstname")).drop(SportsDataDf("lastname"))
+
+SportsChangeName.show()
+
+
+-------------------------------------------------------------------
+task-2)
+--Add a new column called ranking using udfs on dataframe, where :
+gold medalist, with age >= 32 are ranked as pro
+gold medalists, with age <= 31 are ranked amateur
+silver medalist, with age >= 32 are ranked as expert
+silver medalists, with age <= 31 are ranked rookie
+
+
+
+
+def ranking = udf((medaltype:String , age:Int) =>{
+ if(medaltype =="gold" && age>=32) "pro"
+ else if(medaltype =="gold" && age>=31) "amateur"
+ else if(medaltype == "silver" && age>=32) "expert"
+ else  if(medaltype == "silver" && age<=31) "rookie"
+ else ""
+ })
+
+
+ val newsportsdata = SportsDataDf.withColum("ranking",ranking(SportsDataDf("medaltype"),SportsDataDf("Age")))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
